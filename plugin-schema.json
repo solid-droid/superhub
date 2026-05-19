@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plugin Metadata Schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The human-readable name of the plugin."
+    },
+    "version": {
+      "type": "string",
+      "description": "The semantic version of the plugin."
+    },
+    "description": {
+      "type": "string",
+      "description": "A brief description of what the plugin does."
+    },
+    "author": {
+      "type": "string",
+      "description": "The author of the plugin."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["ui", "script"],
+      "description": "The type of the plugin."
+    },
+    "entry": {
+      "type": "string",
+      "description": "The entry file or URL for the plugin module."
+    },
+    "files": {
+      "type": "object",
+      "description": "A map of file paths to their resolved URLs.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "required": ["name", "version", "entry", "type"]
+}

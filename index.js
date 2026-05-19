@@ -82,7 +82,7 @@ app.get('/plugins', async (req, res) => {
 });
 
 // GET /plugins/:slug/:version? - Get specific plugin metadata
-app.get('/plugins/:slug/:version?', async (req, res) => {
+app.get(['/plugins/:slug', '/plugins/:slug/:version'], async (req, res) => {
     try {
         const { slug, version } = req.params;
         const pluginDirPath = path.join(PLUGINS_DIR, slug);
