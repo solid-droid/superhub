@@ -197,9 +197,10 @@ app.get('/plugins', async (req, res) => {
 });
 
 // GET /plugins/:slug/assets/* - Serve plugin assets by slug
-app.get('/plugins/:slug/assets/:assetPath(*)', async (req, res) => {
+app.get(/^\/plugins\/([^/]+)\/assets\/(.+)$/, async (req, res) => {
     try {
-        const { slug, assetPath } = req.params;
+        const slug = req.params[0];
+        const assetPath = req.params[1];
 
         if (!isValidSlug(slug)) {
             return res.status(400).json({ error: 'Invalid plugin slug format' });
