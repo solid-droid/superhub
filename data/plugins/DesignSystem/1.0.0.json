@@ -1,0 +1,14 @@
+{
+  "name": "Design System",
+  "version": "1.0.0",
+  "slug": "design-system",
+  "description": "A design system for consistent UI development.",
+  "author": "SuperApps Team",
+  "widgets": [
+    {"slug": "button" , "version": "1.0.0" , "meta": "/Button/1.0.0.json"},
+    {"slug": "card", "version": "1.0.0", "meta": "/Card/1.0.0.json"},
+    {"slug": "modal", "version": "1.0.0", "meta": "/Modal/1.0.0.json"},
+    {"slug": "input", "version": "1.0.0", "meta": "/Input/1.0.0.json"},
+    {"slug": "checkbox", "version": "1.0.0", "meta": "/Checkbox/1.0.0.json"}
+  ]
+}

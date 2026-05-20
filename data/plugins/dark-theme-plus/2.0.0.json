@@ -1,0 +1,8 @@
+{
+  "name": "Dark Theme Plus",
+  "version": "2.0.0",
+  "slug": "dark-theme-plus",
+  "description": "An advanced dark theme with customizable accent colors.",
+  "author": "Community Contributor",
+  "main": "theme.css"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Super Note Exporter",
+  "version": "1.0.0",
+  "slug": "super-note-exporter",
+  "description": "Exports notes to various formats like PDF and Markdown.",
+  "author": "SuperApps Team",
+  "main": "index.js"
+}
