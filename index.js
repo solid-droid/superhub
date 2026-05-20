@@ -10,6 +10,9 @@ app.use(express.json());
 
 const PLUGINS_DIR = path.join(__dirname, 'data', 'plugins');
 
+// Serve plugin assets directly so clients can dynamic-import local modules.
+app.use('/plugin-assets', express.static(PLUGINS_DIR));
+
 // ==========================================
 // HELPER FUNCTIONS
 // ==========================================
@@ -37,9 +40,88 @@ function sortVersionsDescending(versions) {
     });
 }
 
+function isVersionMetadataFile(name) {
+    return typeof name === 'string' && name.toLowerCase().endsWith('.json');
+}
+
 // Validate slug to prevent Path Traversal
 function isValidSlug(slug) {
     return /^[a-z0-9-]+$/.test(slug);
+}
+
+function makeSlug(name) {
+    return slugify(name || '', { lower: true, strict: true });
+}
+
+async function findPluginDirBySlug(slug) {
+    const items = await fs.readdir(PLUGINS_DIR, { withFileTypes: true });
+
+    for (const item of items) {
+        if (!item.isDirectory()) {
+            continue;
+        }
+
+        const dirName = item.name;
+        if (dirName === slug || makeSlug(dirName) === slug) {
+            return path.join(PLUGINS_DIR, dirName);
+        }
+    }
+
+    return null;
+}
+
+function normalizeMetadata(raw, slug, pluginDirPath, req) {
+    const normalized = { ...raw };
+
+    if (!normalized.slug) {
+        normalized.slug = slug;
+    }
+
+    const files = Array.isArray(normalized.Files) ? normalized.Files : [];
+    const firstLocalJs = files.find((f) => {
+        if (!f || typeof f.path !== 'string') {
+            return false;
+        }
+        return (f.type || 'local') === 'local' && f.path.toLowerCase().endsWith('.js');
+    });
+
+    const entryFromLegacy = firstLocalJs
+        ? `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\\\/g, '/')}/${firstLocalJs.path.replace(/^\/+/, '')}`
+        : null;
+
+    const entryFromMain = typeof normalized.main === 'string' && normalized.main.toLowerCase().endsWith('.js')
+        ? `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\\\/g, '/')}/${normalized.main.replace(/^\/+/, '')}`
+        : null;
+
+    if (!normalized.entry && !normalized.module && !normalized.url && !normalized.path) {
+        normalized.entry = entryFromLegacy || entryFromMain || null;
+    }
+
+    if (normalized.entry && typeof normalized.entry === 'string' && !/^https?:\/\//i.test(normalized.entry)) {
+        normalized.entry = normalized.entry.startsWith('/')
+            ? normalized.entry
+            : `/plugin-assets/${normalized.entry.replace(/^\/+/, '')}`;
+    }
+
+    if (normalized.widgets && Array.isArray(normalized.widgets)) {
+        normalized.widgets = normalized.widgets.map((widget) => {
+            if (!widget || !widget.meta || typeof widget.meta !== 'string') {
+                return widget;
+            }
+
+            const metaPath = widget.meta.replace(/^\/+/, '');
+            return {
+                ...widget,
+                meta: `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\\\/g, '/')}/${metaPath}`,
+            };
+        });
+    }
+
+    normalized._links = {
+        self: `${req.protocol}://${req.get('host')}/plugins/${slug}${normalized.version ? `/${normalized.version}` : ''}`,
+    };
+
+    return normalized;
 }
 
 // ==========================================
@@ -55,7 +137,7 @@ app.post('/plugins', async (req, res) => {
             return res.status(400).json({ error: 'Plugin name and version are required.' });
         }
 
-        const slug = slugify(metadata.name, { lower: true, strict: true });
+        const slug = makeSlug(metadata.name);
         metadata.slug = slug;
 
         const pluginDirPath = path.join(PLUGINS_DIR, slug);
@@ -86,13 +168,14 @@ app.get('/plugins', async (req, res) => {
         for (const item of items) {
             if (item.isDirectory()) {
                 const pluginDirPath = path.join(PLUGINS_DIR, item.name);
-                const versions = await fs.readdir(pluginDirPath);
+                const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
                 
                 if (versions.length > 0) {
                     const sortedVersions = sortVersionsDescending(versions);
                     const latestVersionFile = sortedVersions[0];
                     const metadataRaw = await fs.readFile(path.join(pluginDirPath, latestVersionFile), 'utf-8');
-                    plugins.push(JSON.parse(metadataRaw));
+                    const slug = makeSlug(item.name);
+                    plugins.push(normalizeMetadata(JSON.parse(metadataRaw), slug, pluginDirPath, req));
                 }
             }
         }
@@ -114,11 +197,9 @@ app.get(['/plugins/:slug', '/plugins/:slug/:version'], async (req, res) => {
             return res.status(400).json({ error: 'Invalid plugin slug format' });
         }
 
-        const pluginDirPath = path.join(PLUGINS_DIR, slug);
+        const pluginDirPath = await findPluginDirBySlug(slug);
 
-        try {
-            await fs.access(pluginDirPath);
-        } catch {
+        if (!pluginDirPath) {
             return res.status(404).json({ error: 'Plugin not found' });
         }
 
@@ -136,10 +217,11 @@ app.get(['/plugins/:slug', '/plugins/:slug/:version'], async (req, res) => {
             }
 
             const metadataRaw = await fs.readFile(filePath, 'utf-8');
-            return res.json(JSON.parse(metadataRaw));
+            const metadata = JSON.parse(metadataRaw);
+            return res.json(normalizeMetadata(metadata, slug, pluginDirPath, req));
         } else {
             // Return all versions if not specified
-            const versions = await fs.readdir(pluginDirPath);
+            const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
             if (versions.length === 0) {
                 return res.status(404).json({ error: 'No versions found for this plugin' });
             }
@@ -148,7 +230,7 @@ app.get(['/plugins/:slug', '/plugins/:slug/:version'], async (req, res) => {
             for (const file of versions) {
                 const filePath = path.join(pluginDirPath, file);
                 const metadataRaw = await fs.readFile(filePath, 'utf-8');
-                allVersions.push(JSON.parse(metadataRaw));
+                allVersions.push(normalizeMetadata(JSON.parse(metadataRaw), slug, pluginDirPath, req));
             }
             
             // Sort versions descending
