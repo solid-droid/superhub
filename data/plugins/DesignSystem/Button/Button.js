@@ -1,3 +1,38 @@
+const BUTTON_HTML_URL = new URL('./Button.html', import.meta.url);
+const BUTTON_CSS_URL = new URL('./Button.css', import.meta.url);
+const BUTTON_CSS_LINK_ID = 'ds-button-plugin-css';
+
+function ensureCssLoaded() {
+    if (document.getElementById(BUTTON_CSS_LINK_ID)) {
+        return;
+    }
+
+    const link = document.createElement('link');
+    link.id = BUTTON_CSS_LINK_ID;
+    link.rel = 'stylesheet';
+    link.href = BUTTON_CSS_URL.toString();
+    document.head.appendChild(link);
+}
+
+async function loadTemplateHtml() {
+    const response = await fetch(BUTTON_HTML_URL.toString());
+    if (!response.ok) {
+        throw new Error(`Failed to load button template: ${response.status}`);
+    }
+
+    return response.text();
+}
+
+ensureCssLoaded();
+
+let buttonTemplateHtml = '<button class="ds-button"><span class="ds-button-label">Button</span></button>';
+
+try {
+    buttonTemplateHtml = await loadTemplateHtml();
+} catch (error) {
+    console.warn('Button plugin: using fallback inline template because Button.html failed to load.', error);
+}
+
 class Button {
     /**
      * Create a new Button widget
@@ -25,7 +60,14 @@ class Button {
      * @returns {HTMLButtonElement}
      */
     _createDOM() {
-        const button = document.createElement('button');
+        const template = document.createElement('template');
+        template.innerHTML = String(buttonTemplateHtml || '').trim();
+
+        const rootNode = template.content.firstElementChild;
+        const button = rootNode instanceof HTMLButtonElement
+            ? rootNode
+            : document.createElement('button');
+
         button.className = this._buildClassName();
         button.type = this.type;
         
@@ -39,11 +81,14 @@ class Button {
             }
         });
 
-        const span = document.createElement('span');
-        span.className = 'ds-button-label';
-        span.textContent = this.label;
+        let span = button.querySelector('.ds-button-label');
+        if (!span) {
+            span = document.createElement('span');
+            span.className = 'ds-button-label';
+            button.appendChild(span);
+        }
 
-        button.appendChild(span);
+        span.textContent = this.label;
         return button;
     }
 
