@@ -53,7 +53,7 @@ function makeSlug(name) {
     return slugify(name || '', { lower: true, strict: true });
 }
 
-async function findPluginDirBySlug(slug) {
+async function findPluginDirsBySlug(slug) {
     async function directoryContainsSlugMetadata(dirPath) {
         const entries = await fs.readdir(dirPath, { withFileTypes: true });
         for (const entry of entries) {
@@ -78,6 +78,7 @@ async function findPluginDirBySlug(slug) {
 
     async function walk(currentDir) {
         const items = await fs.readdir(currentDir, { withFileTypes: true });
+        const matches = [];
 
         for (const item of items) {
             if (!item.isDirectory()) {
@@ -86,19 +87,36 @@ async function findPluginDirBySlug(slug) {
 
             const dirPath = path.join(currentDir, item.name);
             if (item.name === slug || makeSlug(item.name) === slug || await directoryContainsSlugMetadata(dirPath)) {
-                return dirPath;
+                matches.push(dirPath);
             }
 
             const nested = await walk(dirPath);
-            if (nested) {
-                return nested;
+            if (nested.length > 0) {
+                matches.push(...nested);
             }
         }
 
-        return null;
+        return matches;
     }
 
     return walk(PLUGINS_DIR);
+}
+
+async function sortPluginDirsByHighestVersionDesc(pluginDirPaths) {
+    const scored = [];
+
+    for (const pluginDirPath of pluginDirPaths) {
+        const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
+        if (versions.length === 0) {
+            continue;
+        }
+
+        const highest = sortVersionsDescending([...versions])[0].replace('.json', '');
+        scored.push({ pluginDirPath, highest });
+    }
+
+    scored.sort((a, b) => b.highest.localeCompare(a.highest, undefined, { numeric: true, sensitivity: 'base' }));
+    return scored.map((x) => x.pluginDirPath);
 }
 
 function normalizeMetadata(raw, slug, pluginDirPath, req) {
@@ -228,27 +246,32 @@ app.get(/^\/plugins\/([^/]+)\/assets\/(.+)$/, async (req, res) => {
             return res.status(400).json({ error: 'Invalid plugin slug format' });
         }
 
-        const pluginDirPath = await findPluginDirBySlug(slug);
-        if (!pluginDirPath) {
+        const pluginDirPaths = await findPluginDirsBySlug(slug);
+        if (!pluginDirPaths || pluginDirPaths.length === 0) {
             return res.status(404).json({ error: 'Plugin not found' });
         }
 
         const relativeAssetPath = String(assetPath || '').replace(/^\/+/, '');
-        const resolvedPath = path.resolve(pluginDirPath, relativeAssetPath);
-        const resolvedPluginRoot = path.resolve(pluginDirPath);
 
-        // Prevent path traversal
-        if (!resolvedPath.startsWith(resolvedPluginRoot)) {
-            return res.status(400).json({ error: 'Invalid asset path' });
+        const sortedPluginDirs = await sortPluginDirsByHighestVersionDesc(pluginDirPaths);
+        for (const pluginDirPath of sortedPluginDirs) {
+            const resolvedPath = path.resolve(pluginDirPath, relativeAssetPath);
+            const resolvedPluginRoot = path.resolve(pluginDirPath);
+
+            // Prevent path traversal
+            if (!resolvedPath.startsWith(resolvedPluginRoot)) {
+                continue;
+            }
+
+            try {
+                await fs.access(resolvedPath);
+                return res.sendFile(resolvedPath);
+            } catch {
+                // Try next candidate directory.
+            }
         }
 
-        try {
-            await fs.access(resolvedPath);
-        } catch {
-            return res.status(404).json({ error: 'Asset not found' });
-        }
-
-        return res.sendFile(resolvedPath);
+        return res.status(404).json({ error: 'Asset not found' });
     } catch (error) {
         console.error('Error serving plugin asset:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -265,9 +288,9 @@ app.get(['/plugins/:slug', '/plugins/:slug/:version'], async (req, res) => {
             return res.status(400).json({ error: 'Invalid plugin slug format' });
         }
 
-        const pluginDirPath = await findPluginDirBySlug(slug);
+        const pluginDirPaths = await findPluginDirsBySlug(slug);
 
-        if (!pluginDirPath) {
+        if (!pluginDirPaths || pluginDirPaths.length === 0) {
             return res.status(404).json({ error: 'Plugin not found' });
         }
 
@@ -276,29 +299,36 @@ app.get(['/plugins/:slug', '/plugins/:slug/:version'], async (req, res) => {
             if (!/^[a-zA-Z0-9.-]+$/.test(version)) {
                 return res.status(400).json({ error: 'Invalid version format' });
             }
-            const filePath = path.join(pluginDirPath, `${version}.json`);
-            
-            try {
-                await fs.access(filePath);
-            } catch {
-                return res.status(404).json({ error: 'Plugin version not found' });
+            for (const pluginDirPath of pluginDirPaths) {
+                const filePath = path.join(pluginDirPath, `${version}.json`);
+
+                try {
+                    await fs.access(filePath);
+                } catch {
+                    continue;
+                }
+
+                const metadataRaw = await fs.readFile(filePath, 'utf-8');
+                const metadata = JSON.parse(metadataRaw);
+                return res.json(normalizeMetadata(metadata, slug, pluginDirPath, req));
             }
 
-            const metadataRaw = await fs.readFile(filePath, 'utf-8');
-            const metadata = JSON.parse(metadataRaw);
-            return res.json(normalizeMetadata(metadata, slug, pluginDirPath, req));
+            return res.status(404).json({ error: 'Plugin version not found' });
         } else {
             // Return all versions if not specified
-            const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
-            if (versions.length === 0) {
-                return res.status(404).json({ error: 'No versions found for this plugin' });
-            }
-            
             const allVersions = [];
-            for (const file of versions) {
-                const filePath = path.join(pluginDirPath, file);
-                const metadataRaw = await fs.readFile(filePath, 'utf-8');
-                allVersions.push(normalizeMetadata(JSON.parse(metadataRaw), slug, pluginDirPath, req));
+            for (const pluginDirPath of pluginDirPaths) {
+                const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
+
+                for (const file of versions) {
+                    const filePath = path.join(pluginDirPath, file);
+                    const metadataRaw = await fs.readFile(filePath, 'utf-8');
+                    allVersions.push(normalizeMetadata(JSON.parse(metadataRaw), slug, pluginDirPath, req));
+                }
+            }
+
+            if (allVersions.length === 0) {
+                return res.status(404).json({ error: 'No versions found for this plugin' });
             }
             
             // Sort versions descending
