@@ -1,0 +1,28 @@
+{
+  "name": "Button",
+  "version": "1.0.1",
+  "slug": "button",
+  "description": "A reusable button component.",
+  "author": "SuperApps Team",
+  "Files": [
+    {
+      "path": "Button.js",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "Button.css",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "Button.html",
+      "type": "local",
+      "required": true
+    },
+    {
+        "path": "https://cdn.superapps.com/design-system/button-utils.js",
+        "type": "remote"
+    }
+  ]
+}
