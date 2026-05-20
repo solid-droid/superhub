@@ -54,6 +54,28 @@ function makeSlug(name) {
 }
 
 async function findPluginDirBySlug(slug) {
+    async function directoryContainsSlugMetadata(dirPath) {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isFile() || !isVersionMetadataFile(entry.name)) {
+                continue;
+            }
+
+            try {
+                const filePath = path.join(dirPath, entry.name);
+                const raw = await fs.readFile(filePath, 'utf-8');
+                const metadata = JSON.parse(raw);
+                if (metadata?.slug === slug) {
+                    return true;
+                }
+            } catch {
+                // Ignore malformed metadata files during lookup.
+            }
+        }
+
+        return false;
+    }
+
     async function walk(currentDir) {
         const items = await fs.readdir(currentDir, { withFileTypes: true });
 
@@ -63,7 +85,7 @@ async function findPluginDirBySlug(slug) {
             }
 
             const dirPath = path.join(currentDir, item.name);
-            if (item.name === slug || makeSlug(item.name) === slug) {
+            if (item.name === slug || makeSlug(item.name) === slug || await directoryContainsSlugMetadata(dirPath)) {
                 return dirPath;
             }
 
