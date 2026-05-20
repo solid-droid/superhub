@@ -1,0 +1,9 @@
+.ds-button-tertiary {
+    background-color: transparent;
+    color: var(--ds-primary-color, #1a73e8);
+    border: var(--ds-border-width, 1px) solid transparent;
+}
+
+.ds-button-tertiary:hover {
+    background-color: rgba(26, 115, 232, 0.08);
+}

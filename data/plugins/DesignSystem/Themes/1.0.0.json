@@ -1,0 +1,39 @@
+{
+  "name": "Theme",
+  "version": "1.0.0",
+  "slug": "theme",
+  "description": "Theme manager supporting light, dark color bases and retro, glass, modern aesthetic modifiers.",
+  "author": "SuperApps Team",
+  "Files": [
+    {
+      "path": "Theme.js",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "light.css",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "dark.css",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "retro.css",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "glass.css",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "modern.css",
+      "type": "local",
+      "required": true
+    }
+  ]
+}

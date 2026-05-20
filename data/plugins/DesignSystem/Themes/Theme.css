@@ -1,0 +1,5 @@
+/* Theme Design System Base CSS Tokens */
+:root {
+    --ds-transition-speed: 0.25s;
+    --ds-focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.4);
+}

@@ -1,0 +1,24 @@
+{
+  "name": "Input",
+  "version": "1.0.0",
+  "slug": "input",
+  "description": "A reusable input field component.",
+  "author": "SuperApps Team",
+  "Files": [
+    {
+      "path": "Input.js",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "Input.css",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "Input.html",
+      "type": "local",
+      "required": true
+    }
+  ]
+}

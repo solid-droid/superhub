@@ -1,0 +1,37 @@
+.style-retro {
+    --ds-radius: 0px;
+    --ds-border-width: 3px;
+    --ds-border-color: #000000;
+    --ds-transition-speed: 0s;
+    
+    /* Boxy Retro Shadows */
+    --ds-btn-shadow: 4px 4px 0px #000000;
+    --ds-card-shadow: 8px 8px 0px #000000;
+    --ds-input-shadow: inset 2px 2px 0px rgba(0,0,0,0.2);
+    --ds-focus-ring: 0 0 0 4px #ffff00;
+    
+    /* Vintage Game Palette Modifiers */
+    --ds-primary-color: #ff00ff;
+    --ds-primary-hover: #cc00cc;
+    --ds-primary-active: #990099;
+    --ds-secondary-color: #00ffff;
+    --ds-secondary-hover: #00cccc;
+    --ds-secondary-active: #009999;
+    --ds-danger-color: #ff0000;
+    --ds-danger-hover: #cc0000;
+    --ds-danger-active: #990000;
+
+    --ds-bg-color: #f0eae0;
+    --ds-text-color: #000000;
+    --ds-input-bg: #ffffff;
+    --ds-card-bg: #ffffcc;
+    --ds-placeholder-color: #555555;
+    
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.style-retro .ds-button {
+    text-transform: uppercase;
+    font-weight: 800;
+    letter-spacing: 1px;
+}

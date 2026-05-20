@@ -1,0 +1,30 @@
+:root, .theme-dark {
+    --ds-primary-color: #0d6efd;
+    --ds-primary-hover: #0b5ed7;
+    --ds-primary-active: #0a58ca;
+    
+    --ds-secondary-color: #495057;
+    --ds-secondary-hover: #343a40;
+    --ds-secondary-active: #212529;
+
+    --ds-danger-color: #e03131;
+    --ds-danger-hover: #c92a2a;
+    --ds-danger-active: #b01a1a;
+
+    --ds-bg-color: #121214;
+    --ds-text-color: #f8f9fa;
+    --ds-border-color: rgba(255, 255, 255, 0.15);
+    
+    --ds-input-bg: rgba(255, 255, 255, 0.05);
+    --ds-card-bg: rgba(255, 255, 255, 0.04);
+    
+    --ds-placeholder-color: rgba(255, 255, 255, 0.4);
+    
+    --ds-disabled-bg: rgba(255, 255, 255, 0.02);
+    --ds-disabled-text: rgba(255, 255, 255, 0.3);
+    --ds-disabled-border: rgba(255, 255, 255, 0.08);
+    
+    --ds-btn-text-color: #ffffff;
+    --ds-btn-secondary-text-color: #ffffff;
+    --ds-btn-danger-text-color: #ffffff;
+}

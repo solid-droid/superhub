@@ -1,0 +1,23 @@
+.style-glass {
+    --ds-radius: 12px;
+    --ds-border-width: 1px;
+    --ds-border-color: rgba(255, 255, 255, 0.18);
+    --ds-transition-speed: 0.3s;
+    
+    /* Glassmorphism */
+    --ds-backdrop-filter: blur(16px) saturate(180%);
+    --ds-card-bg: rgba(255, 255, 255, 0.07);
+    --ds-input-bg: rgba(255, 255, 255, 0.05);
+    
+    --ds-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+    --ds-btn-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.15);
+    
+    --ds-focus-ring: 0 0 0 4px rgba(255, 255, 255, 0.2);
+}
+
+.style-glass.theme-light {
+    --ds-border-color: rgba(0, 0, 0, 0.12);
+    --ds-card-bg: rgba(255, 255, 255, 0.4);
+    --ds-input-bg: rgba(255, 255, 255, 0.5);
+    --ds-card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+}

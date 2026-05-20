@@ -1,0 +1,9 @@
+.ds-button-primary {
+    background-color: var(--ds-primary-color, #1a73e8);
+    color: #ffffff;
+    border: var(--ds-border-width, 1px) solid transparent;
+}
+
+.ds-button-primary:hover {
+    background-color: var(--ds-primary-hover-color, #1557b0);
+}

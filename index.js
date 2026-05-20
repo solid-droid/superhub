@@ -10,6 +10,38 @@ app.use(express.json());
 
 const PLUGINS_DIR = path.join(__dirname, 'data', 'plugins');
 
+// Intercept files with ?variants=... and stitch them
+app.get('/plugin-assets/*', async (req, res, next) => {
+    try {
+        const ext = path.extname(req.path).toLowerCase();
+        const variantsParam = req.query.variants;
+        
+        if (variantsParam && ['.js', '.css', '.html'].includes(ext)) {
+            const relativePath = req.path.replace(/^\/plugin-assets\//, '');
+            const resolvedPath = path.resolve(PLUGINS_DIR, relativePath);
+            
+            // Prevent path traversal
+            if (!resolvedPath.startsWith(PLUGINS_DIR)) {
+                return res.status(403).json({ error: 'Access Denied' });
+            }
+            
+            await fs.access(resolvedPath);
+            
+            const stitched = await stitchFileWithVariants(resolvedPath, path.dirname(resolvedPath), ext, variantsParam);
+            const mimeTypes = {
+                '.js': 'application/javascript',
+                '.css': 'text/css',
+                '.html': 'text/html'
+            };
+            res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain');
+            return res.send(stitched);
+        }
+    } catch (e) {
+        console.error('Error in plugin-assets variants stitcher:', e);
+    }
+    next();
+});
+
 // Serve plugin assets directly so clients can dynamic-import local modules.
 app.use('/plugin-assets', express.static(PLUGINS_DIR));
 
@@ -119,6 +151,46 @@ async function sortPluginDirsByHighestVersionDesc(pluginDirPaths) {
     return scored.map((x) => x.pluginDirPath);
 }
 
+async function stitchFileWithVariants(resolvedPath, baseDir, ext, variantsParam) {
+    const variants = variantsParam.split(',').map(v => v.trim()).filter(Boolean);
+    let content = await fs.readFile(resolvedPath, 'utf-8');
+    
+    let variantsDir = path.join(baseDir, 'Variants');
+    try {
+        await fs.access(variantsDir);
+    } catch {
+        variantsDir = path.join(baseDir, 'Varients'); // fallback spelling
+    }
+    
+    let variantsDirExists = false;
+    try {
+        await fs.access(variantsDir);
+        variantsDirExists = true;
+    } catch {}
+    
+    if (variantsDirExists) {
+        for (const v of variants) {
+            const variantFile = path.join(variantsDir, `${v}${ext}`);
+            try {
+                await fs.access(variantFile);
+                const variantContent = await fs.readFile(variantFile, 'utf-8');
+                
+                if (ext === '.css') {
+                    content += `\n\n/* Variant: ${v} */\n${variantContent}`;
+                } else if (ext === '.html') {
+                    content += `\n\n<!-- Variant: ${v} -->\n${variantContent}`;
+                } else if (ext === '.js') {
+                    content += `\n\n/* Variant: ${v} */\n${variantContent}`;
+                }
+            } catch {
+                // Ignore missing variant files
+            }
+        }
+    }
+    
+    return content;
+}
+
 function normalizeMetadata(raw, slug, pluginDirPath, req) {
     const normalized = { ...raw };
 
@@ -126,20 +198,44 @@ function normalizeMetadata(raw, slug, pluginDirPath, req) {
         normalized.slug = slug;
     }
 
+    // Extract variants: from query parameters OR default from the metadata file
+    const queryVariants = req.query.variants;
+    const defaultVariants = Array.isArray(normalized.Variants) 
+        ? normalized.Variants.join(',') 
+        : (Array.isArray(normalized.variants) ? normalized.variants.join(',') : '');
+    
+    const variants = queryVariants !== undefined ? queryVariants : defaultVariants;
+    const querySuffix = variants ? `?variants=${encodeURIComponent(variants)}` : '';
+
     const files = Array.isArray(normalized.Files) ? normalized.Files : [];
-    const firstLocalJs = files.find((f) => {
+    
+    // Propagate variants to files list
+    if (querySuffix) {
+        normalized.Files = files.map((f) => {
+            if (f && typeof f.path === 'string') {
+                const basePath = f.path.split('?')[0];
+                return {
+                    ...f,
+                    path: basePath + querySuffix
+                };
+            }
+            return f;
+        });
+    }
+
+    const firstLocalJs = normalized.Files.find((f) => {
         if (!f || typeof f.path !== 'string') {
             return false;
         }
-        return (f.type || 'local') === 'local' && f.path.toLowerCase().endsWith('.js');
+        return (f.type || 'local') === 'local' && f.path.toLowerCase().split('?')[0].endsWith('.js');
     });
 
     const entryFromLegacy = firstLocalJs
-        ? `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\\\/g, '/')}/${firstLocalJs.path.replace(/^\/+/, '')}`
+        ? `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\/g, '/')}/${firstLocalJs.path.replace(/^\/+/, '')}`
         : null;
 
     const entryFromMain = typeof normalized.main === 'string' && normalized.main.toLowerCase().endsWith('.js')
-        ? `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\\\/g, '/')}/${normalized.main.replace(/^\/+/, '')}`
+        ? `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\/g, '/')}/${normalized.main.replace(/^\/+/, '')}${querySuffix}`
         : null;
 
     if (!normalized.entry && !normalized.module && !normalized.url && !normalized.path) {
@@ -147,9 +243,15 @@ function normalizeMetadata(raw, slug, pluginDirPath, req) {
     }
 
     if (normalized.entry && typeof normalized.entry === 'string' && !/^https?:\/\//i.test(normalized.entry)) {
-        normalized.entry = normalized.entry.startsWith('/')
-            ? normalized.entry
+        const cleanEntry = normalized.entry.startsWith('/plugin-assets') 
+            ? normalized.entry 
             : `/plugin-assets/${normalized.entry.replace(/^\/+/, '')}`;
+        normalized.entry = cleanEntry;
+        
+        if (querySuffix && !normalized.entry.includes('variants=')) {
+            const separator = normalized.entry.includes('?') ? '&' : '?';
+            normalized.entry = `${normalized.entry}${separator}variants=${encodeURIComponent(variants)}`;
+        }
     }
 
     if (normalized.widgets && Array.isArray(normalized.widgets)) {
@@ -161,7 +263,7 @@ function normalizeMetadata(raw, slug, pluginDirPath, req) {
             const metaPath = widget.meta.replace(/^\/+/, '');
             return {
                 ...widget,
-                meta: `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\\\/g, '/')}/${metaPath}`,
+                meta: `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\/g, '/')}/${metaPath}`,
             };
         });
     }
@@ -265,6 +367,21 @@ app.get(/^\/plugins\/([^/]+)\/assets\/(.+)$/, async (req, res) => {
 
             try {
                 await fs.access(resolvedPath);
+                
+                const ext = path.extname(resolvedPath).toLowerCase();
+                const variantsParam = req.query.variants;
+                
+                if (variantsParam && ['.js', '.css', '.html'].includes(ext)) {
+                    const stitched = await stitchFileWithVariants(resolvedPath, path.dirname(resolvedPath), ext, variantsParam);
+                    const mimeTypes = {
+                        '.js': 'application/javascript',
+                        '.css': 'text/css',
+                        '.html': 'text/html'
+                    };
+                    res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain');
+                    return res.send(stitched);
+                }
+                
                 return res.sendFile(resolvedPath);
             } catch {
                 // Try next candidate directory.

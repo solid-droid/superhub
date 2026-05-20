@@ -1,0 +1,24 @@
+{
+  "name": "Card",
+  "version": "1.0.0",
+  "slug": "card",
+  "description": "A reusable container card component.",
+  "author": "SuperApps Team",
+  "Files": [
+    {
+      "path": "Card.js",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "Card.css",
+      "type": "local",
+      "required": true
+    },
+    {
+      "path": "Card.html",
+      "type": "local",
+      "required": true
+    }
+  ]
+}
