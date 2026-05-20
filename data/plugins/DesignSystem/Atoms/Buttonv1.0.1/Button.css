@@ -37,4 +37,14 @@
     pointer-events: none;
     cursor: not-allowed;
 }
+
+.ds-button-icon {
+    padding: 0.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
+}
+
+.ds-button-icon-label {
+    gap: 0.5rem;
+    padding-inline: 0.875rem;
 }

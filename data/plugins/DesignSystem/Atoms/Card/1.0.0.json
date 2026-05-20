@@ -2,23 +2,25 @@
   "name": "Card",
   "version": "1.0.0",
   "slug": "card",
+  "category": "atom",
   "description": "A reusable container card component.",
   "author": "SuperApps Team",
-  "Files": [
-    {
+  "exports": {
+    "logic": {
       "path": "Card.js",
-      "type": "local",
-      "required": true
+      "format": "esm"
     },
-    {
-      "path": "Card.css",
-      "type": "local",
-      "required": true
-    },
-    {
+    "template": {
       "path": "Card.html",
-      "type": "local",
-      "required": true
-    }
-  ]
+      "format": "html"
+    },
+    "styles": [
+      { "path": "Card.css", "scope": "global" }
+    ]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["elevated"],
+    "available": ["elevated", "outlined", "flat"]
+  }
 }

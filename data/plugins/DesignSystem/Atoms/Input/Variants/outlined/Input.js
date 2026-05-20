@@ -1,4 +1,4 @@
-class OutlinedInput extends Input {
+class OutlinedTextInput extends TextInput {
     /**
      * Create a new OutlinedInput widget
      * @param {Object} options 
@@ -8,4 +8,4 @@ class OutlinedInput extends Input {
     }
 }
 
-export { OutlinedInput };
+export { OutlinedTextInput };

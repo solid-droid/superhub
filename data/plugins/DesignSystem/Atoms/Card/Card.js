@@ -44,6 +44,7 @@ class Card {
         this.title = options.title || '';
         this.content = options.content || '';
         this.footer = options.footer || '';
+        this.variant = options.variant || 'elevated';
         this.className = options.className || '';
 
         this.element = this._createDOM();
@@ -54,9 +55,7 @@ class Card {
         template.innerHTML = String(cardTemplateHtml || '').trim();
         const card = template.content.firstElementChild;
 
-        if (this.className) {
-            card.className = `ds-card ${this.className}`;
-        }
+        card.className = `ds-card ds-card-${this.variant}${this.className ? ` ${this.className}` : ''}`;
 
         const headerEl = card.querySelector('.ds-card-header');
         const titleEl = card.querySelector('.ds-card-title');
@@ -135,4 +134,15 @@ class Card {
     }
 }
 
+function template(options = {}) {
+    const title = options.title || '';
+    const content = options.content || '';
+    const footer = options.footer || '';
+    const variant = options.variant || 'elevated';
+    return `<div class="ds-card ds-card-${variant}"><div class="ds-card-header"><h3 class="ds-card-title">${title}</h3></div><div class="ds-card-body">${content}</div><div class="ds-card-footer">${footer}</div></div>`;
+}
+
+const logic = Card;
+
 export default Card;
+export { logic, template };

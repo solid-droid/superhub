@@ -28,19 +28,19 @@ let inputTemplateHtml = '<div class="ds-input-container"><label class="ds-input-
 try {
     inputTemplateHtml = await loadTemplateHtml();
 } catch (error) {
-    console.warn('Input plugin: using fallback inline template.', error);
+    console.warn('TextInput plugin: using fallback inline template.', error);
 }
 
-class Input {
+class TextInput {
     /**
-     * Create a new Input widget
+    * Create a new TextInput widget
      * @param {Object} options 
      * @param {string} options.label - Label text for input
      * @param {string} options.placeholder - Placeholder text
      * @param {string} options.value - Initial input value
      * @param {string} options.type - 'text', 'password', 'number', 'email' etc.
      * @param {string} options.variant - 'outlined' or 'filled'
-     * @param {boolean} options.disabled - Whether input is disabled
+    * @param {boolean} options.disabled - Whether the input is disabled
      * @param {Function} options.onChange - Change/input event handler
      */
     constructor(options = {}) {
@@ -144,4 +144,14 @@ class Input {
     }
 }
 
-export default Input;
+function template(options = {}) {
+    const label = options.label || '';
+    const placeholder = options.placeholder || '';
+    const variant = options.variant || 'outlined';
+    return `<div class="ds-input-container"><label class="ds-input-label">${label}</label><input class="ds-input ds-input-${variant}" placeholder="${placeholder}" /></div>`;
+}
+
+const logic = TextInput;
+
+export default TextInput;
+export { logic, template };

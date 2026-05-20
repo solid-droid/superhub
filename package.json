@@ -1,18 +1,22 @@
 {
   "name": "superhub",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "Superhub plugin registry server running on Bun runtime.",
+  "type": "module",
+  "packageManager": "bun@1.2.15",
+  "engines": {
+    "bun": ">=1.2.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "slugify": "^1.6.9"
-  }
+  "scripts": {
+    "dev": "bun --hot index.js",
+    "start": "bun index.js",
+    "test": "bun test"
+  },
+  "keywords": [
+    "bun",
+    "plugin-registry",
+    "superhub"
+  ],
+  "license": "MIT",
+  "dependencies": {}
 }

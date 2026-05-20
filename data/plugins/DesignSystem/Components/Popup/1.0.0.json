@@ -2,23 +2,25 @@
   "name": "Popup",
   "version": "1.0.0",
   "slug": "popup",
+  "category": "component",
   "description": "A draggable pop-up window component.",
   "author": "SuperApps Team",
-  "Files": [
-    {
+  "exports": {
+    "logic": {
       "path": "Popup.js",
-      "type": "local",
-      "required": true
+      "format": "esm"
     },
-    {
-      "path": "Popup.css",
-      "type": "local",
-      "required": true
-    },
-    {
+    "template": {
       "path": "Popup.html",
-      "type": "local",
-      "required": true
-    }
-  ]
+      "format": "html"
+    },
+    "styles": [
+      { "path": "Popup.css", "scope": "global" }
+    ]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["default"],
+    "available": ["default", "fullscreen", "minimal"]
+  }
 }

@@ -44,6 +44,7 @@ class Popup {
         this.title = options.title || 'Popup';
         this.content = options.content || '';
         this.footer = options.footer || '';
+        this.variant = options.variant || 'default';
         this.onClose = options.onClose || null;
 
         this.overlay = this._createDOM();
@@ -74,10 +75,12 @@ class Popup {
                 className: 'ds-popup-window'
             });
             popupBox = cardInstance.element;
+            popupBox.classList.add(`ds-popup-${this.variant}`);
         } else {
             // Fallback DOM if Card dependency is missing
             popupBox = document.createElement('div');
             popupBox.className = 'ds-popup-window ds-card';
+            popupBox.classList.add(`ds-popup-${this.variant}`);
             
             const header = document.createElement('div');
             header.className = 'ds-card-header';
@@ -247,4 +250,11 @@ class Popup {
     }
 }
 
+function template() {
+    return '<div class="ds-popup-overlay"><div class="ds-popup-window"></div></div>';
+}
+
+const logic = Popup;
+
 export default Popup;
+export { logic, template };

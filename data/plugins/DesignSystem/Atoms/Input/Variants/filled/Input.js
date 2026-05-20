@@ -1,4 +1,4 @@
-class FilledInput extends Input {
+class FilledTextInput extends TextInput {
     /**
      * Create a new FilledInput widget
      * @param {Object} options 
@@ -8,4 +8,4 @@ class FilledInput extends Input {
     }
 }
 
-export { FilledInput };
+export { FilledTextInput };

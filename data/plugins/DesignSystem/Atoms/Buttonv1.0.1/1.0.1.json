@@ -2,27 +2,25 @@
   "name": "Button",
   "version": "1.0.1",
   "slug": "button",
+  "category": "atom",
   "description": "A reusable button component.",
   "author": "SuperApps Team",
-  "Files": [
-    {
+  "exports": {
+    "logic": {
       "path": "Button.js",
-      "type": "local",
-      "required": true
+      "format": "esm"
     },
-    {
-      "path": "Button.css",
-      "type": "local",
-      "required": true
-    },
-    {
+    "template": {
       "path": "Button.html",
-      "type": "local",
-      "required": true
+      "format": "html"
     },
-    {
-        "path": "https://cdn.superapps.com/design-system/button-utils.js",
-        "type": "remote"
-    }
-  ]
+    "styles": [
+      { "path": "Button.css", "scope": "global" }
+    ]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["primary"],
+    "available": ["primary", "secondary", "tertiary", "icon", "icon-label"]
+  }
 }

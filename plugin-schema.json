@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Plugin Metadata Schema",
+  "title": "Plugin Metadata Schema v2",
   "type": "object",
   "properties": {
     "name": {
@@ -19,22 +19,84 @@
       "type": "string",
       "description": "The author of the plugin."
     },
-    "type": {
+    "slug": {
       "type": "string",
-      "enum": ["ui", "script"],
-      "description": "The type of the plugin."
+      "description": "Unique plugin slug."
     },
-    "entry": {
+    "category": {
       "type": "string",
-      "description": "The entry file or URL for the plugin module."
+      "enum": ["atom", "component", "theme", "application", "data"],
+      "description": "Plugin category."
     },
-    "files": {
+    "exports": {
       "type": "object",
-      "description": "A map of file paths to their resolved URLs.",
-      "additionalProperties": {
-        "type": "string"
+      "required": ["logic"],
+      "properties": {
+        "logic": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string" },
+            "format": { "type": "string" }
+          }
+        },
+        "template": {
+          "type": ["object", "null"],
+          "properties": {
+            "path": { "type": "string" },
+            "format": { "type": "string" }
+          }
+        },
+        "styles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string" },
+              "scope": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "variants": {
+      "type": "object",
+      "properties": {
+        "defaults": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "available": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["stack"]
+        },
+        "groups": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "conflictPolicy": {
+          "type": "string",
+          "enum": ["strict", "resolver", "last-write-wins"]
+        },
+        "resolver": {
+          "type": "object",
+          "properties": {
+            "order": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
       }
     }
   },
-  "required": ["name", "version", "entry", "type"]
+  "required": ["name", "version", "slug", "category", "exports"]
 }

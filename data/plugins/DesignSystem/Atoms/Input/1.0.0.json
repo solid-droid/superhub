@@ -1,24 +1,26 @@
 {
-  "name": "Input",
+  "name": "TextInput",
   "version": "1.0.0",
   "slug": "input",
-  "description": "A reusable input field component.",
+  "category": "atom",
+  "description": "A reusable text input field component.",
   "author": "SuperApps Team",
-  "Files": [
-    {
+  "exports": {
+    "logic": {
       "path": "Input.js",
-      "type": "local",
-      "required": true
+      "format": "esm"
     },
-    {
-      "path": "Input.css",
-      "type": "local",
-      "required": true
-    },
-    {
+    "template": {
       "path": "Input.html",
-      "type": "local",
-      "required": true
-    }
-  ]
+      "format": "html"
+    },
+    "styles": [
+      { "path": "Input.css", "scope": "global" }
+    ]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["outlined"],
+    "available": ["outlined", "filled"]
+  }
 }

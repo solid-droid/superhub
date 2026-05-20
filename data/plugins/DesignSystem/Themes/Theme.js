@@ -1,9 +1,12 @@
 const THEME_FILES = {
     dark: new URL('./dark.css', import.meta.url).toString(),
     light: new URL('./light.css', import.meta.url).toString(),
+    'high-contrast': new URL('./high-contrast.css', import.meta.url).toString(),
     retro: new URL('./retro.css', import.meta.url).toString(),
     glass: new URL('./glass.css', import.meta.url).toString(),
-    modern: new URL('./modern.css', import.meta.url).toString()
+    modern: new URL('./modern.css', import.meta.url).toString(),
+    minimal: new URL('./minimal.css', import.meta.url).toString(),
+    neobrutalist: new URL('./neobrutalist.css', import.meta.url).toString()
 };
 
 function ensureThemesLoaded() {
@@ -26,9 +29,9 @@ class ThemeManager {
         // Fallback to document.body if targetElement is null
         this.target = targetElement;
         this.currentBase = 'dark';
-        this.currentStyle = 'modern';
+        this.currentStyles = ['modern'];
 
-        this.apply(this.currentBase, this.currentStyle);
+        this.apply(this.currentBase, this.currentStyles);
     }
 
     _getTarget() {
@@ -47,9 +50,10 @@ class ThemeManager {
         const el = this._getTarget();
         if (!el) return;
 
-        this.currentBase = baseTheme === 'light' ? 'light' : 'dark';
+        const baseThemes = ['dark', 'light', 'high-contrast'];
+        this.currentBase = baseThemes.includes(baseTheme) ? baseTheme : 'dark';
         
-        el.classList.remove('theme-light', 'theme-dark');
+        el.classList.remove('theme-light', 'theme-dark', 'theme-high-contrast');
         el.classList.add(`theme-${this.currentBase}`);
 
         // Set global body background styles based on design tokens
@@ -65,12 +69,24 @@ class ThemeManager {
         const el = this._getTarget();
         if (!el) return;
 
-        const styles = ['retro', 'glass', 'modern'];
+        const styles = ['retro', 'glass', 'modern', 'minimal', 'neobrutalist'];
         styles.forEach(s => el.classList.remove(`style-${s}`));
 
-        if (styles.includes(aestheticStyle)) {
-            this.currentStyle = aestheticStyle;
-            el.classList.add(`style-${aestheticStyle}`);
+        const styleList = Array.isArray(aestheticStyle)
+            ? aestheticStyle
+            : [aestheticStyle];
+
+        this.currentStyles = [];
+        styleList.forEach((styleToken) => {
+            if (styles.includes(styleToken)) {
+                this.currentStyles.push(styleToken);
+                el.classList.add(`style-${styleToken}`);
+            }
+        });
+
+        if (this.currentStyles.length === 0) {
+            this.currentStyles = ['modern'];
+            el.classList.add('style-modern');
         }
     }
 
@@ -87,5 +103,9 @@ class ThemeManager {
 
 // Single instance by default
 const Theme = new ThemeManager();
+const logic = ThemeManager;
+function template() {
+    return '';
+}
 export default Theme;
-export { ThemeManager };
+export { ThemeManager, logic, template };

@@ -1,0 +1,7 @@
+.ds-tabs { display: flex; flex-direction: column; gap: 8px; }
+.ds-tabs-nav { display: flex; gap: 6px; }
+.ds-tabs-btn { border: 0; background: transparent; color: #cbd5e1; padding: 6px 10px; cursor: pointer; }
+.ds-tabs-underline .ds-tabs-btn { border-bottom: 2px solid transparent; }
+.ds-tabs-underline .ds-tabs-btn:hover { border-bottom-color: #60a5fa; }
+.ds-tabs-pill .ds-tabs-btn { border-radius: 999px; background: #334155; }
+.ds-tabs-content { background: rgba(15,23,42,0.35); border-radius: 8px; padding: 10px; }

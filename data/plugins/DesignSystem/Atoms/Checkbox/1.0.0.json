@@ -1,0 +1,22 @@
+{
+  "name": "Checkbox",
+  "version": "1.0.0",
+  "slug": "checkbox",
+  "category": "atom",
+  "description": "A configurable checkbox atom.",
+  "author": "SuperApps Team",
+  "exports": {
+    "logic": { "path": "Checkbox.js", "format": "esm" },
+    "template": { "path": "Checkbox.html", "format": "html" },
+    "styles": [{ "path": "Checkbox.css", "scope": "global" }]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["default"],
+    "available": ["default", "accent"],
+    "groups": {
+      "tone": ["default", "accent"]
+    },
+    "conflictPolicy": "last-write-wins"
+  }
+}

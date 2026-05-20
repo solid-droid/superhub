@@ -1,49 +1,31 @@
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs/promises');
-const path = require('path');
-const slugify = require('slugify');
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import {
+    parseVariantsValue,
+    validatePluginMetadataV2,
+    resolveSelectedVariants,
+    stitchFileWithVariants,
+    VariantResolutionError,
+} from './lib/plugin-runtime.js';
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PLUGINS_DIR = path.join(__dirname, 'data', 'plugins');
 
-// Intercept files with ?variants=... and stitch them
-app.get('/plugin-assets/*', async (req, res, next) => {
-    try {
-        const ext = path.extname(req.path).toLowerCase();
-        const variantsParam = req.query.variants;
-        
-        if (variantsParam && ['.js', '.css', '.html'].includes(ext)) {
-            const relativePath = req.path.replace(/^\/plugin-assets\//, '');
-            const resolvedPath = path.resolve(PLUGINS_DIR, relativePath);
-            
-            // Prevent path traversal
-            if (!resolvedPath.startsWith(PLUGINS_DIR)) {
-                return res.status(403).json({ error: 'Access Denied' });
-            }
-            
-            await fs.access(resolvedPath);
-            
-            const stitched = await stitchFileWithVariants(resolvedPath, path.dirname(resolvedPath), ext, variantsParam);
-            const mimeTypes = {
-                '.js': 'application/javascript',
-                '.css': 'text/css',
-                '.html': 'text/html'
-            };
-            res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain');
-            return res.send(stitched);
-        }
-    } catch (e) {
-        console.error('Error in plugin-assets variants stitcher:', e);
-    }
-    next();
-});
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+};
 
-// Serve plugin assets directly so clients can dynamic-import local modules.
-app.use('/plugin-assets', express.static(PLUGINS_DIR));
+const MIME_TYPES = {
+    '.js': 'application/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.html': 'text/html; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+};
 
 // ==========================================
 // HELPER FUNCTIONS
@@ -82,8 +64,14 @@ function isValidSlug(slug) {
 }
 
 function makeSlug(name) {
-    return slugify(name || '', { lower: true, strict: true });
+    return String(name || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
 }
+
 
 async function findPluginDirsBySlug(slug) {
     async function directoryContainsSlugMetadata(dirPath) {
@@ -131,6 +119,7 @@ async function findPluginDirsBySlug(slug) {
         return matches;
     }
 
+
     return walk(PLUGINS_DIR);
 }
 
@@ -151,108 +140,100 @@ async function sortPluginDirsByHighestVersionDesc(pluginDirPaths) {
     return scored.map((x) => x.pluginDirPath);
 }
 
-async function stitchFileWithVariants(resolvedPath, baseDir, ext, variantsParam) {
-    const variants = variantsParam.split(',').map(v => v.trim()).filter(Boolean);
-    let content = await fs.readFile(resolvedPath, 'utf-8');
-    
-    let variantsDir = path.join(baseDir, 'Variants');
-    try {
-        await fs.access(variantsDir);
-    } catch {
-        variantsDir = path.join(baseDir, 'Varients'); // fallback spelling
-    }
-    
-    let variantsDirExists = false;
-    try {
-        await fs.access(variantsDir);
-        variantsDirExists = true;
-    } catch {}
-    
-    if (variantsDirExists) {
-        for (const v of variants) {
-            const variantFile = path.join(variantsDir, `${v}${ext}`);
-            try {
-                await fs.access(variantFile);
-                const variantContent = await fs.readFile(variantFile, 'utf-8');
-                
-                if (ext === '.css') {
-                    content += `\n\n/* Variant: ${v} */\n${variantContent}`;
-                } else if (ext === '.html') {
-                    content += `\n\n<!-- Variant: ${v} -->\n${variantContent}`;
-                } else if (ext === '.js') {
-                    content += `\n\n/* Variant: ${v} */\n${variantContent}`;
-                }
-            } catch {
-                // Ignore missing variant files
+async function collectPluginMetadataFiles(rootDir) {
+    const collected = [];
+
+    async function walk(currentDir) {
+        const items = await fs.readdir(currentDir, { withFileTypes: true });
+
+        for (const item of items) {
+            const itemPath = path.join(currentDir, item.name);
+            if (item.isDirectory()) {
+                await walk(itemPath);
+                continue;
+            }
+
+            if (item.isFile() && isVersionMetadataFile(item.name)) {
+                collected.push({
+                    filePath: itemPath,
+                    pluginDirPath: currentDir,
+                });
             }
         }
     }
-    
-    return content;
+
+    await walk(rootDir);
+    return collected;
 }
 
-function normalizeMetadata(raw, slug, pluginDirPath, req) {
+async function loadHighestValidMetadataFromPluginDir(pluginDirPath) {
+    const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
+    const sortedVersions = sortVersionsDescending([...versions]);
+
+    for (const versionFile of sortedVersions) {
+        try {
+            const raw = await fs.readFile(path.join(pluginDirPath, versionFile), 'utf-8');
+            const parsed = JSON.parse(raw);
+            const validationErrors = validatePluginMetadataV2(parsed);
+            if (validationErrors.length === 0) {
+                return parsed;
+            }
+        } catch {
+            // Skip malformed metadata files.
+        }
+    }
+
+    return null;
+}
+
+function buildAssetUrl(pluginDirPath, relativePath, querySuffix = '') {
+    const normalized = String(relativePath || '').replace(/^\/+/, '');
+    return `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\/g, '/')}/${normalized}${querySuffix}`;
+}
+
+function normalizeMetadata(raw, slug, pluginDirPath, requestContext) {
     const normalized = { ...raw };
 
     if (!normalized.slug) {
         normalized.slug = slug;
     }
 
-    // Extract variants: from query parameters OR default from the metadata file
-    const queryVariants = req.query.variants;
-    const defaultVariants = Array.isArray(normalized.Variants) 
-        ? normalized.Variants.join(',') 
-        : (Array.isArray(normalized.variants) ? normalized.variants.join(',') : '');
-    
-    const variants = queryVariants !== undefined ? queryVariants : defaultVariants;
-    const querySuffix = variants ? `?variants=${encodeURIComponent(variants)}` : '';
+    const queryVariants = parseVariantsValue(requestContext.query.variants);
+    const variantPolicy = String(requestContext.query.variantPolicy || normalized.variants?.conflictPolicy || 'last-write-wins');
+    const resolvedVariants = resolveSelectedVariants(normalized, queryVariants, { variantPolicy });
+    const variantQuery = resolvedVariants.join(',');
+    const querySuffix = variantQuery ? `?variants=${encodeURIComponent(variantQuery)}` : '';
 
-    const files = Array.isArray(normalized.Files) ? normalized.Files : [];
-    
-    // Propagate variants to files list
-    if (querySuffix) {
-        normalized.Files = files.map((f) => {
-            if (f && typeof f.path === 'string') {
-                const basePath = f.path.split('?')[0];
-                return {
-                    ...f,
-                    path: basePath + querySuffix
-                };
+    const logicPath = normalized.exports?.logic?.path;
+    const templatePath = normalized.exports?.template?.path;
+    const styleEntries = Array.isArray(normalized.exports?.styles) ? normalized.exports.styles : [];
+
+    const logicUrl = logicPath ? buildAssetUrl(pluginDirPath, logicPath, querySuffix) : null;
+    const templateUrl = templatePath ? buildAssetUrl(pluginDirPath, templatePath, querySuffix) : null;
+    const styleUrls = styleEntries
+        .filter((style) => style && typeof style.path === 'string')
+        .map((style) => ({
+            ...style,
+            url: buildAssetUrl(pluginDirPath, style.path, querySuffix),
+        }));
+
+    normalized.entry = logicUrl;
+    normalized.selectedVariants = resolvedVariants;
+    normalized.variantPolicy = variantPolicy;
+    normalized.exports = {
+        ...normalized.exports,
+        logic: {
+            ...(normalized.exports?.logic || {}),
+            url: logicUrl,
+        },
+        template: normalized.exports?.template
+            ? {
+                ...normalized.exports.template,
+                url: templateUrl,
             }
-            return f;
-        });
-    }
-
-    const firstLocalJs = normalized.Files.find((f) => {
-        if (!f || typeof f.path !== 'string') {
-            return false;
-        }
-        return (f.type || 'local') === 'local' && f.path.toLowerCase().split('?')[0].endsWith('.js');
-    });
-
-    const entryFromLegacy = firstLocalJs
-        ? `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\/g, '/')}/${firstLocalJs.path.replace(/^\/+/, '')}`
-        : null;
-
-    const entryFromMain = typeof normalized.main === 'string' && normalized.main.toLowerCase().endsWith('.js')
-        ? `/plugin-assets/${path.relative(PLUGINS_DIR, pluginDirPath).replace(/\\/g, '/')}/${normalized.main.replace(/^\/+/, '')}${querySuffix}`
-        : null;
-
-    if (!normalized.entry && !normalized.module && !normalized.url && !normalized.path) {
-        normalized.entry = entryFromLegacy || entryFromMain || null;
-    }
-
-    if (normalized.entry && typeof normalized.entry === 'string' && !/^https?:\/\//i.test(normalized.entry)) {
-        const cleanEntry = normalized.entry.startsWith('/plugin-assets') 
-            ? normalized.entry 
-            : `/plugin-assets/${normalized.entry.replace(/^\/+/, '')}`;
-        normalized.entry = cleanEntry;
-        
-        if (querySuffix && !normalized.entry.includes('variants=')) {
-            const separator = normalized.entry.includes('?') ? '&' : '?';
-            normalized.entry = `${normalized.entry}${separator}variants=${encodeURIComponent(variants)}`;
-        }
-    }
+            : null,
+        styles: styleUrls,
+    };
 
     if (normalized.widgets && Array.isArray(normalized.widgets)) {
         normalized.widgets = normalized.widgets.map((widget) => {
@@ -269,153 +250,257 @@ function normalizeMetadata(raw, slug, pluginDirPath, req) {
     }
 
     normalized._links = {
-        self: `${req.protocol}://${req.get('host')}/plugins/${slug}${normalized.version ? `/${normalized.version}` : ''}`,
+        self: `${requestContext.origin}/plugins/${slug}${normalized.version ? `/${normalized.version}` : ''}`,
     };
 
     return normalized;
 }
 
-// ==========================================
-// ROUTES
-// ==========================================
+function withCors(headers = {}) {
+    return {
+        ...CORS_HEADERS,
+        ...headers,
+    };
+}
 
-// POST /plugins - Create a new plugin metadata
-app.post('/plugins', async (req, res) => {
+function jsonResponse(payload, status = 200, headers = {}) {
+    return new Response(JSON.stringify(payload), {
+        status,
+        headers: withCors({
+            'Content-Type': 'application/json; charset=utf-8',
+            ...headers,
+        }),
+    });
+}
+
+function textResponse(payload, status = 200, headers = {}) {
+    return new Response(payload, {
+        status,
+        headers: withCors(headers),
+    });
+}
+
+function isPathInside(rootPath, targetPath) {
+    const relative = path.relative(rootPath, targetPath);
+    return !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function buildRequestContext(url, request) {
+    const host = request.headers.get('host') || url.host;
+    return {
+        origin: `${url.protocol}//${host}`,
+        query: {
+            variants: url.searchParams.get('variants') || undefined,
+            variantPolicy: url.searchParams.get('variantPolicy') || undefined,
+        },
+    };
+}
+
+async function serveStaticFile(filePath) {
+    const file = Bun.file(filePath);
+    const exists = await file.exists();
+    if (!exists) {
+        return null;
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    return new Response(file, {
+        status: 200,
+        headers: withCors({
+            'Content-Type': contentType,
+        }),
+    });
+}
+
+async function handlePluginAssets(url) {
+    const relativePath = url.pathname.replace(/^\/plugin-assets\//, '');
+    const resolvedPath = path.resolve(PLUGINS_DIR, relativePath);
+    if (!isPathInside(PLUGINS_DIR, resolvedPath)) {
+        return jsonResponse({ error: 'Access Denied' }, 403);
+    }
+
+    const ext = path.extname(resolvedPath).toLowerCase();
+    const variantsParam = url.searchParams.get('variants');
+    const variantPolicy = String(url.searchParams.get('variantPolicy') || 'last-write-wins');
+
+    if (variantsParam && ['.js', '.css', '.html'].includes(ext)) {
+        try {
+            await fs.access(resolvedPath);
+            const selectedVariants = resolveSelectedVariants(null, variantsParam, { variantPolicy });
+            const stitched = await stitchFileWithVariants(resolvedPath, path.dirname(resolvedPath), ext, selectedVariants);
+            return textResponse(stitched, 200, {
+                'Content-Type': MIME_TYPES[ext] || 'text/plain; charset=utf-8',
+            });
+        } catch (error) {
+            if (error instanceof VariantResolutionError) {
+                return jsonResponse({ error: error.message }, 400);
+            }
+        }
+    }
+
+    const response = await serveStaticFile(resolvedPath);
+    if (!response) {
+        return jsonResponse({ error: 'Asset not found' }, 404);
+    }
+    return response;
+}
+
+async function handleCreatePluginMetadata(request) {
     try {
-        const metadata = req.body;
+        const metadata = await request.json();
 
-        if (!metadata.name || !metadata.version) {
-            return res.status(400).json({ error: 'Plugin name and version are required.' });
+        if (!metadata?.name || !metadata?.version) {
+            return jsonResponse({ error: 'Plugin name and version are required.' }, 400);
         }
 
         const slug = makeSlug(metadata.name);
         metadata.slug = slug;
 
+        const validationErrors = validatePluginMetadataV2(metadata);
+        if (validationErrors.length > 0) {
+            return jsonResponse({
+                error: 'Invalid plugin metadata format.',
+                details: validationErrors,
+            }, 400);
+        }
+
         const pluginDirPath = path.join(PLUGINS_DIR, slug);
-        
-        // Ensure plugin-specific directory exists
         await fs.mkdir(pluginDirPath, { recursive: true });
 
         const versionFilePath = path.join(pluginDirPath, `${metadata.version}.json`);
-        
-        // Write the specific version metadata
         await fs.writeFile(versionFilePath, JSON.stringify(metadata, null, 2), 'utf-8');
 
-        res.status(201).json({ message: 'Plugin metadata created successfully', slug, version: metadata.version });
+        return jsonResponse({ message: 'Plugin metadata created successfully', slug, version: metadata.version }, 201);
     } catch (error) {
         console.error('Error creating plugin:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        return jsonResponse({ error: 'Internal server error' }, 500);
     }
-});
+}
 
-// GET /plugins - Get all metadata files (latest version of each plugin)
-app.get('/plugins', async (req, res) => {
+async function handleGetPlugins(url, request) {
     try {
         await ensurePluginsDir();
-        const plugins = [];
-        
-        const items = await fs.readdir(PLUGINS_DIR, { withFileTypes: true });
-        
-        for (const item of items) {
-            if (item.isDirectory()) {
-                const pluginDirPath = path.join(PLUGINS_DIR, item.name);
-                const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
-                
-                if (versions.length > 0) {
-                    const sortedVersions = sortVersionsDescending(versions);
-                    const latestVersionFile = sortedVersions[0];
-                    const metadataRaw = await fs.readFile(path.join(pluginDirPath, latestVersionFile), 'utf-8');
-                    const slug = makeSlug(item.name);
-                    plugins.push(normalizeMetadata(JSON.parse(metadataRaw), slug, pluginDirPath, req));
+        const metadataFiles = await collectPluginMetadataFiles(PLUGINS_DIR);
+        const latestBySlug = new Map();
+
+        for (const item of metadataFiles) {
+            try {
+                const metadataRaw = await fs.readFile(item.filePath, 'utf-8');
+                const parsed = JSON.parse(metadataRaw);
+                const validationErrors = validatePluginMetadataV2(parsed);
+                if (validationErrors.length > 0) {
+                    console.warn(`Skipping invalid metadata in ${item.filePath}:`, validationErrors);
+                    continue;
                 }
+
+                const slug = parsed.slug;
+                const existing = latestBySlug.get(slug);
+                if (!existing || parsed.version.localeCompare(existing.version, undefined, { numeric: true, sensitivity: 'base' }) > 0) {
+                    latestBySlug.set(slug, {
+                        version: parsed.version,
+                        metadata: parsed,
+                        pluginDirPath: item.pluginDirPath,
+                    });
+                }
+            } catch (error) {
+                console.warn(`Skipping malformed plugin metadata file ${item.filePath}:`, error.message);
             }
         }
 
-        res.json(plugins);
+        const requestContext = buildRequestContext(url, request);
+        const plugins = Array.from(latestBySlug.values()).map((entry) =>
+            normalizeMetadata(entry.metadata, entry.metadata.slug, entry.pluginDirPath, requestContext)
+        );
+
+        plugins.sort((a, b) => String(a.slug || '').localeCompare(String(b.slug || '')));
+        return jsonResponse(plugins);
     } catch (error) {
-        console.error('Error fetching plugins:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        if (error instanceof VariantResolutionError) {
+            return jsonResponse({ error: error.message }, 400);
+        }
+        console.error('Error fetching plugin:', error);
+        return jsonResponse({ error: 'Internal server error' }, 500);
     }
-});
+}
 
-// GET /plugins/:slug/assets/* - Serve plugin assets by slug
-app.get(/^\/plugins\/([^/]+)\/assets\/(.+)$/, async (req, res) => {
+async function handlePluginAssetBySlug(url, request, slug, assetPath) {
     try {
-        const slug = req.params[0];
-        const assetPath = req.params[1];
-
         if (!isValidSlug(slug)) {
-            return res.status(400).json({ error: 'Invalid plugin slug format' });
+            return jsonResponse({ error: 'Invalid plugin slug format' }, 400);
         }
 
         const pluginDirPaths = await findPluginDirsBySlug(slug);
         if (!pluginDirPaths || pluginDirPaths.length === 0) {
-            return res.status(404).json({ error: 'Plugin not found' });
+            return jsonResponse({ error: 'Plugin not found' }, 404);
         }
 
         const relativeAssetPath = String(assetPath || '').replace(/^\/+/, '');
-
         const sortedPluginDirs = await sortPluginDirsByHighestVersionDesc(pluginDirPaths);
+
         for (const pluginDirPath of sortedPluginDirs) {
             const resolvedPath = path.resolve(pluginDirPath, relativeAssetPath);
             const resolvedPluginRoot = path.resolve(pluginDirPath);
 
-            // Prevent path traversal
-            if (!resolvedPath.startsWith(resolvedPluginRoot)) {
+            if (!isPathInside(resolvedPluginRoot, resolvedPath)) {
                 continue;
             }
 
             try {
                 await fs.access(resolvedPath);
-                
                 const ext = path.extname(resolvedPath).toLowerCase();
-                const variantsParam = req.query.variants;
-                
+                const variantsParam = url.searchParams.get('variants');
+
                 if (variantsParam && ['.js', '.css', '.html'].includes(ext)) {
-                    const stitched = await stitchFileWithVariants(resolvedPath, path.dirname(resolvedPath), ext, variantsParam);
-                    const mimeTypes = {
-                        '.js': 'application/javascript',
-                        '.css': 'text/css',
-                        '.html': 'text/html'
-                    };
-                    res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain');
-                    return res.send(stitched);
+                    const pluginMetadata = await loadHighestValidMetadataFromPluginDir(pluginDirPath);
+                    const variantPolicy = String(url.searchParams.get('variantPolicy') || pluginMetadata?.variants?.conflictPolicy || 'last-write-wins');
+                    const selectedVariants = resolveSelectedVariants(pluginMetadata, variantsParam, { variantPolicy });
+                    const stitched = await stitchFileWithVariants(resolvedPath, path.dirname(resolvedPath), ext, selectedVariants);
+                    return textResponse(stitched, 200, {
+                        'Content-Type': MIME_TYPES[ext] || 'text/plain; charset=utf-8',
+                    });
                 }
-                
-                return res.sendFile(resolvedPath);
-            } catch {
+
+                const response = await serveStaticFile(resolvedPath);
+                if (response) {
+                    return response;
+                }
+            } catch (error) {
+                if (error instanceof VariantResolutionError) {
+                    throw error;
+                }
                 // Try next candidate directory.
             }
         }
 
-        return res.status(404).json({ error: 'Asset not found' });
+        return jsonResponse({ error: 'Asset not found' }, 404);
     } catch (error) {
+        if (error instanceof VariantResolutionError) {
+            return jsonResponse({ error: error.message }, 400);
+        }
         console.error('Error serving plugin asset:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        return jsonResponse({ error: 'Internal server error' }, 500);
     }
-});
+}
 
-// GET /plugins/:slug/:version? - Get specific plugin metadata
-app.get(['/plugins/:slug', '/plugins/:slug/:version'], async (req, res) => {
+async function handleGetPluginMetadata(url, request, slug, version) {
     try {
-        const { slug, version } = req.params;
-
-        // Security check
         if (!isValidSlug(slug)) {
-            return res.status(400).json({ error: 'Invalid plugin slug format' });
+            return jsonResponse({ error: 'Invalid plugin slug format' }, 400);
         }
 
         const pluginDirPaths = await findPluginDirsBySlug(slug);
-
         if (!pluginDirPaths || pluginDirPaths.length === 0) {
-            return res.status(404).json({ error: 'Plugin not found' });
+            return jsonResponse({ error: 'Plugin not found' }, 404);
         }
 
+        const requestContext = buildRequestContext(url, request);
+
         if (version) {
-            // Basic sanitization for version string (alphanumeric, dots, hyphens)
             if (!/^[a-zA-Z0-9.-]+$/.test(version)) {
-                return res.status(400).json({ error: 'Invalid version format' });
+                return jsonResponse({ error: 'Invalid version format' }, 400);
             }
+
             for (const pluginDirPath of pluginDirPaths) {
                 const filePath = path.join(pluginDirPath, `${version}.json`);
 
@@ -427,64 +512,103 @@ app.get(['/plugins/:slug', '/plugins/:slug/:version'], async (req, res) => {
 
                 const metadataRaw = await fs.readFile(filePath, 'utf-8');
                 const metadata = JSON.parse(metadataRaw);
-                return res.json(normalizeMetadata(metadata, slug, pluginDirPath, req));
-            }
-
-            return res.status(404).json({ error: 'Plugin version not found' });
-        } else {
-            // Return all versions if not specified
-            const allVersions = [];
-            for (const pluginDirPath of pluginDirPaths) {
-                const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
-
-                for (const file of versions) {
-                    const filePath = path.join(pluginDirPath, file);
-                    const metadataRaw = await fs.readFile(filePath, 'utf-8');
-                    allVersions.push(normalizeMetadata(JSON.parse(metadataRaw), slug, pluginDirPath, req));
+                const validationErrors = validatePluginMetadataV2(metadata);
+                if (validationErrors.length > 0) {
+                    return jsonResponse({
+                        error: 'Plugin metadata is invalid.',
+                        details: validationErrors,
+                    }, 422);
                 }
+
+                return jsonResponse(normalizeMetadata(metadata, slug, pluginDirPath, requestContext));
             }
 
-            if (allVersions.length === 0) {
-                return res.status(404).json({ error: 'No versions found for this plugin' });
-            }
-            
-            // Sort versions descending
-            allVersions.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true, sensitivity: 'base' }));
-            return res.json(allVersions);
+            return jsonResponse({ error: 'Plugin version not found' }, 404);
         }
 
+        const allVersions = [];
+        for (const pluginDirPath of pluginDirPaths) {
+            const versions = (await fs.readdir(pluginDirPath)).filter(isVersionMetadataFile);
+
+            for (const file of versions) {
+                const filePath = path.join(pluginDirPath, file);
+                const metadataRaw = await fs.readFile(filePath, 'utf-8');
+                const parsed = JSON.parse(metadataRaw);
+                const validationErrors = validatePluginMetadataV2(parsed);
+                if (validationErrors.length > 0) {
+                    console.warn(`Skipping invalid metadata in ${file}:`, validationErrors);
+                    continue;
+                }
+                allVersions.push(normalizeMetadata(parsed, slug, pluginDirPath, requestContext));
+            }
+        }
+
+        if (allVersions.length === 0) {
+            return jsonResponse({ error: 'No versions found for this plugin' }, 404);
+        }
+
+        allVersions.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true, sensitivity: 'base' }));
+        return jsonResponse(allVersions);
     } catch (error) {
-        console.error('Error fetching plugin:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        if (error instanceof VariantResolutionError) {
+            return jsonResponse({ error: error.message }, 400);
+        }
+        console.error('Error fetching plugins:', error);
+        return jsonResponse({ error: 'Internal server error' }, 500);
     }
-});
+}
 
 // ==========================================
 // STARTUP
 // ==========================================
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT || 3001);
 
-ensurePluginsDir().then(() => {
-    const server = app.listen(PORT, () => {
-        console.log(`Plugin Registry Server is listening on http://localhost:${PORT}`);
-        console.log(`Press Ctrl+C to stop the server.`);
-    });
-    
-    // STRICT ERROR CATCHER: If the port is already in use, scream and crash loudly.
-    server.on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-            console.error(`\n❌ ERROR: Port ${PORT} is already in use!`);
-            console.error(`Another server is running in the background. Kill it first.\n`);
-            process.exit(1);
-        } else {
-            console.error('\n❌ Fatal Server Error:', err);
+await ensurePluginsDir();
+
+const server = Bun.serve({
+    port: PORT,
+    async fetch(request) {
+        const url = new URL(request.url);
+        const { pathname } = url;
+
+        if (request.method === 'OPTIONS') {
+            return new Response(null, {
+                status: 204,
+                headers: withCors(),
+            });
         }
-    });
 
-    server.on('close', () => {
-        console.log('Server process closed naturally.');
-    });
+        if (request.method === 'GET' && pathname.startsWith('/plugin-assets/')) {
+            return handlePluginAssets(url);
+        }
 
-}).catch(err => {
-    console.error('Fatal Error: Failed to initialize server directory:', err);
+        if (request.method === 'POST' && pathname === '/plugins') {
+            return handleCreatePluginMetadata(request);
+        }
+
+        if (request.method === 'GET' && pathname === '/plugins') {
+            return handleGetPlugins(url, request);
+        }
+
+        const pluginAssetMatch = pathname.match(/^\/plugins\/([^/]+)\/assets\/(.+)$/);
+        if (request.method === 'GET' && pluginAssetMatch) {
+            const [, slug, assetPath] = pluginAssetMatch;
+            return handlePluginAssetBySlug(url, request, slug, assetPath);
+        }
+
+        const pluginMetadataMatch = pathname.match(/^\/plugins\/([^/]+)(?:\/([^/]+))?$/);
+        if (request.method === 'GET' && pluginMetadataMatch) {
+            const [, slug, version] = pluginMetadataMatch;
+            return handleGetPluginMetadata(url, request, slug, version);
+        }
+
+        return jsonResponse({ error: 'Not Found' }, 404);
+    },
+    error(error) {
+        console.error('Fatal Server Error:', error);
+        return jsonResponse({ error: 'Internal server error' }, 500);
+    },
 });
+
+console.log(`Plugin Registry Server is listening on ${server.url.origin}`);
+console.log('Press Ctrl+C to stop the server.');

@@ -1,0 +1,15 @@
+.ds-checkbox-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ds-checkbox {
+  width: 16px;
+  height: 16px;
+}
+
+.ds-checkbox-accent .ds-checkbox {
+  accent-color: #22c55e;
+}

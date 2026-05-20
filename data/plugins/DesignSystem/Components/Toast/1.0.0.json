@@ -1,0 +1,22 @@
+{
+  "name": "Toast",
+  "version": "1.0.0",
+  "slug": "toast",
+  "category": "component",
+  "description": "A lightweight toast notification component.",
+  "author": "SuperApps Team",
+  "exports": {
+    "logic": { "path": "Toast.js", "format": "esm" },
+    "template": { "path": "Toast.html", "format": "html" },
+    "styles": [{ "path": "Toast.css", "scope": "global" }]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["info"],
+    "available": ["info", "success", "warning", "error"],
+    "groups": {
+      "tone": ["info", "success", "warning", "error"]
+    },
+    "conflictPolicy": "last-write-wins"
+  }
+}

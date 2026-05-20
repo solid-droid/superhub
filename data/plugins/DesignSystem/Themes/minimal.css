@@ -1,0 +1,6 @@
+.style-minimal {
+  --ds-surface-bg: rgba(255,255,255,0.02);
+  --ds-surface-border: rgba(148,163,184,0.24);
+  --ds-shadow: none;
+  --ds-radius: 6px;
+}

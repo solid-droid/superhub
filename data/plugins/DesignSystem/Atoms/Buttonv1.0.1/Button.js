@@ -175,4 +175,13 @@ class Button {
     }
 }
 
+function template(options = {}) {
+    const label = options.label || 'Button';
+    const variant = options.variant || 'primary';
+    return `<button class="ds-button ds-button-${variant}" type="button"><span class="ds-button-label">${label}</span></button>`;
+}
+
+const logic = Button;
+
 export default Button;
+export { logic, template };

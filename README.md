@@ -1,6 +1,6 @@
 # Superhub 🔌
 
-Superhub is the official App and Plugin Registry Server for **Supernote**. Built on **Node.js** and **Express**, it stores, manages, and securely serves versioned plugin bundles (JavaScript modules, CSS stylesheets, widgets, and assets) for dynamic, runtime loading in the Supernote Tauri application.
+Superhub is the official App and Plugin Registry Server for **Supernote**. Built on **Bun runtime**, it stores, manages, and securely serves versioned plugin bundles (JavaScript modules, CSS stylesheets, widgets, and assets) for dynamic, runtime loading in the Supernote Tauri application.
 
 ---
 
@@ -38,13 +38,13 @@ superhub/
 ### 1. Install Dependencies
 Run the following command inside the `superhub` directory to install dependencies:
 ```bash
-npm install
+bun install
 ```
 
 ### 2. Start the Server
-Start the Express registry server:
+Start the registry server:
 ```bash
-npm start
+bun run start
 ```
 The server will start listening on **`http://localhost:3001`** by default.
 
@@ -115,3 +115,52 @@ Fetches the metadata configuration object for a specific version of a plugin.
 
 ### 5. `GET /plugins/:slug/assets/*`
 Serves static asset files associated with the plugin (e.g., `/plugins/my-note-tools/assets/styles.css`). This endpoint checks the workspace directories and serves files securely.
+
+---
+
+## 🧩 Plugin Metadata v2 (Implemented)
+
+Superhub now uses a strict metadata contract centered on dual exports and variants.
+
+```json
+{
+  "name": "Button",
+  "version": "1.0.1",
+  "slug": "button",
+  "category": "atom",
+  "description": "A reusable button component.",
+  "author": "SuperApps Team",
+  "exports": {
+    "logic": { "path": "Button.js", "format": "esm" },
+    "template": { "path": "Button.html", "format": "html" },
+    "styles": [{ "path": "Button.css", "scope": "global" }]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["primary"],
+    "available": ["primary", "secondary", "danger"]
+  }
+}
+```
+
+### Variant Stitching
+
+- `GET /plugins/:slug/:version?variants=a,b,c` resolves selected variants.
+- Variant selection is propagated to exported asset URLs.
+- `GET /plugin-assets/*` stitches matching variant files from `Variants/` folders for `.js`, `.css`, and `.html` assets.
+- Conflict handling can be controlled with `variantPolicy` query parameter:
+  - `strict`
+  - `resolver` (uses plugin metadata resolver order)
+  - `last-write-wins` (default)
+
+### Loader Contract
+
+- `exports.logic.path` is required and acts as the module entry.
+- `exports.template.path` is optional and provides no-event template markup.
+- `exports.styles` is optional and contains stylesheet assets loaded by clients.
+
+### Run Tests
+
+```bash
+bun test
+```

@@ -1,0 +1,7 @@
+.theme-high-contrast {
+  --ds-bg-color: #000;
+  --ds-text-color: #fff;
+  --ds-surface-bg: #000;
+  --ds-surface-border: #fff;
+  --ds-accent-color: #ffeb3b;
+}

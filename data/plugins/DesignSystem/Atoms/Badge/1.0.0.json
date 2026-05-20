@@ -1,0 +1,22 @@
+{
+  "name": "Badge",
+  "version": "1.0.0",
+  "slug": "badge",
+  "category": "atom",
+  "description": "A compact status badge.",
+  "author": "SuperApps Team",
+  "exports": {
+    "logic": { "path": "Badge.js", "format": "esm" },
+    "template": { "path": "Badge.html", "format": "html" },
+    "styles": [{ "path": "Badge.css", "scope": "global" }]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["neutral"],
+    "available": ["neutral", "success", "warning", "danger"],
+    "groups": {
+      "tone": ["neutral", "success", "warning", "danger"]
+    },
+    "conflictPolicy": "last-write-wins"
+  }
+}

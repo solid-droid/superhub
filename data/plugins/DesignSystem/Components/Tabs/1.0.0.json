@@ -1,0 +1,25 @@
+{
+  "name": "Tabs",
+  "version": "1.0.0",
+  "slug": "tabs",
+  "category": "component",
+  "description": "A simple tabs component for grouped content.",
+  "author": "SuperApps Team",
+  "exports": {
+    "logic": { "path": "Tabs.js", "format": "esm" },
+    "template": { "path": "Tabs.html", "format": "html" },
+    "styles": [{ "path": "Tabs.css", "scope": "global" }]
+  },
+  "variants": {
+    "mode": "stack",
+    "defaults": ["underline"],
+    "available": ["underline", "pill"],
+    "groups": {
+      "presentation": ["underline", "pill"]
+    },
+    "conflictPolicy": "resolver",
+    "resolver": {
+      "order": ["pill", "underline"]
+    }
+  }
+}

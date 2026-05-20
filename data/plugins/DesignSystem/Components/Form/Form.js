@@ -45,6 +45,7 @@ class Form {
         this.fieldsConfig = options.fields || [];
         this.submitLabel = options.submitLabel || 'Submit';
         this.cancelLabel = options.cancelLabel || '';
+        this.variant = options.variant || 'default';
         this.onSubmit = options.onSubmit || null;
         this.onCancel = options.onCancel || null;
 
@@ -57,6 +58,7 @@ class Form {
         const template = document.createElement('template');
         template.innerHTML = String(formTemplateHtml || '').trim();
         const form = template.content.firstElementChild;
+        form.classList.add(`ds-form-${this.variant}`);
 
         const fieldsContainer = form.querySelector('.ds-form-fields');
         const actionsContainer = form.querySelector('.ds-form-actions');
@@ -215,4 +217,11 @@ class Form {
     }
 }
 
+function template() {
+    return '<form class="ds-form ds-form-default"><div class="ds-form-fields"></div><div class="ds-form-actions"></div></form>';
+}
+
+const logic = Form;
+
 export default Form;
+export { logic, template };
