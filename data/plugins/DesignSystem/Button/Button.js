@@ -1,11 +1,12 @@
 const BUTTON_HTML_URL = new URL('./Button.html', import.meta.url);
 const BUTTON_CSS_URL = new URL('./Button.css', import.meta.url);
 const BUTTON_CSS_LINK_ID = 'ds-button-plugin-css';
+const FALLBACK_TEMPLATE = '<button class="ds-button"><span class="ds-button-label">Button</span></button>';
+
+let buttonTemplateHtml = FALLBACK_TEMPLATE;
 
 function ensureCssLoaded() {
-    if (document.getElementById(BUTTON_CSS_LINK_ID)) {
-        return;
-    }
+    if (document.getElementById(BUTTON_CSS_LINK_ID)) return;
 
     const link = document.createElement('link');
     link.id = BUTTON_CSS_LINK_ID;
@@ -14,24 +15,36 @@ function ensureCssLoaded() {
     document.head.appendChild(link);
 }
 
-async function loadTemplateHtml() {
-    const response = await fetch(BUTTON_HTML_URL.toString());
-    if (!response.ok) {
-        throw new Error(`Failed to load button template: ${response.status}`);
+async function ensureTemplateLoaded() {
+    if (buttonTemplateHtml !== FALLBACK_TEMPLATE) return;
+
+    try {
+        const response = await fetch(BUTTON_HTML_URL.toString());
+        if (!response.ok) return;
+
+        const html = (await response.text()).trim();
+        if (html) {
+            buttonTemplateHtml = html;
+        }
+    } catch {
+        // Keep fallback template.
+    }
+}
+
+function createButtonElementFromTemplate() {
+    const template = document.createElement('template');
+    template.innerHTML = buttonTemplateHtml;
+    const rootNode = template.content.firstElementChild;
+
+    if (rootNode instanceof HTMLButtonElement) {
+        return rootNode;
     }
 
-    return response.text();
+    return document.createElement('button');
 }
 
 ensureCssLoaded();
-
-let buttonTemplateHtml = '<button class="ds-button"><span class="ds-button-label">Button</span></button>';
-
-try {
-    buttonTemplateHtml = await loadTemplateHtml();
-} catch (error) {
-    console.warn('Button plugin: using fallback inline template because Button.html failed to load.', error);
-}
+void ensureTemplateLoaded();
 
 class Button {
     /**
@@ -47,9 +60,6 @@ class Button {
         this.variant = options.variant || 'primary';
         this.disabled = !!options.disabled;
         this.onClick = options.onClick || null;
-        this.type = options.type || 'button';
-        this.className = options.className || '';
-        this.attrs = options.attrs || {};
 
         this.element = this._createDOM();
         this._attachEvents();
@@ -60,26 +70,13 @@ class Button {
      * @returns {HTMLButtonElement}
      */
     _createDOM() {
-        const template = document.createElement('template');
-        template.innerHTML = String(buttonTemplateHtml || '').trim();
-
-        const rootNode = template.content.firstElementChild;
-        const button = rootNode instanceof HTMLButtonElement
-            ? rootNode
-            : document.createElement('button');
-
-        button.className = this._buildClassName();
-        button.type = this.type;
+        const button = createButtonElementFromTemplate();
+        button.className = `ds-button ds-button-${this.variant}`;
+        button.type = 'button';
         
         if (this.disabled) {
             button.disabled = true;
         }
-
-        Object.entries(this.attrs).forEach(([key, value]) => {
-            if (value !== undefined && value !== null) {
-                button.setAttribute(key, String(value));
-            }
-        });
 
         let span = button.querySelector('.ds-button-label');
         if (!span) {
@@ -90,11 +87,6 @@ class Button {
 
         span.textContent = this.label;
         return button;
-    }
-
-    _buildClassName() {
-        const extra = String(this.className || '').trim();
-        return `ds-button ds-button-${this.variant}${extra ? ` ${extra}` : ''}`;
     }
 
     /**
@@ -137,15 +129,7 @@ class Button {
      */
     setVariant(variant) {
         this.variant = variant || 'primary';
-        this.element.className = this._buildClassName();
-    }
-
-    /**
-     * Replaces click handler
-     * @param {Function | null} handler
-     */
-    setOnClick(handler) {
-        this.onClick = typeof handler === 'function' ? handler : null;
+        this.element.className = `ds-button ds-button-${this.variant}`;
     }
 
     /**
