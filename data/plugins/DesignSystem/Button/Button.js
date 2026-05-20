@@ -12,6 +12,9 @@ class Button {
         this.variant = options.variant || 'primary';
         this.disabled = !!options.disabled;
         this.onClick = options.onClick || null;
+        this.type = options.type || 'button';
+        this.className = options.className || '';
+        this.attrs = options.attrs || {};
 
         this.element = this._createDOM();
         this._attachEvents();
@@ -23,11 +26,18 @@ class Button {
      */
     _createDOM() {
         const button = document.createElement('button');
-        button.className = `ds-button ds-button-${this.variant}`;
+        button.className = this._buildClassName();
+        button.type = this.type;
         
         if (this.disabled) {
             button.disabled = true;
         }
+
+        Object.entries(this.attrs).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                button.setAttribute(key, String(value));
+            }
+        });
 
         const span = document.createElement('span');
         span.className = 'ds-button-label';
@@ -35,6 +45,11 @@ class Button {
 
         button.appendChild(span);
         return button;
+    }
+
+    _buildClassName() {
+        const extra = String(this.className || '').trim();
+        return `ds-button ds-button-${this.variant}${extra ? ` ${extra}` : ''}`;
     }
 
     /**
@@ -69,6 +84,23 @@ class Button {
     setDisabled(isDisabled) {
         this.disabled = !!isDisabled;
         this.element.disabled = this.disabled;
+    }
+
+    /**
+     * Updates the button variant and refreshes classes
+     * @param {string} variant
+     */
+    setVariant(variant) {
+        this.variant = variant || 'primary';
+        this.element.className = this._buildClassName();
+    }
+
+    /**
+     * Replaces click handler
+     * @param {Function | null} handler
+     */
+    setOnClick(handler) {
+        this.onClick = typeof handler === 'function' ? handler : null;
     }
 
     /**

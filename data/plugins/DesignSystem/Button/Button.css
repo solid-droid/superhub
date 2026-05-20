@@ -56,3 +56,23 @@
     background-color: #4e555b;
     border-color: #4e555b;
 }
+
+/* Danger Variant */
+.ds-button-danger {
+    color: #ffffff;
+    background-color: #d13438;
+}
+
+.ds-button-danger:hover {
+    background-color: #a4262c;
+    border-color: #a4262c;
+}
+
+.ds-button-danger:focus {
+    box-shadow: 0 0 0 0.25rem rgba(209, 52, 56, 0.45);
+}
+
+.ds-button-danger:active {
+    background-color: #8b1e22;
+    border-color: #8b1e22;
+}
