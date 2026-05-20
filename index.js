@@ -54,20 +54,29 @@ function makeSlug(name) {
 }
 
 async function findPluginDirBySlug(slug) {
-    const items = await fs.readdir(PLUGINS_DIR, { withFileTypes: true });
+    async function walk(currentDir) {
+        const items = await fs.readdir(currentDir, { withFileTypes: true });
 
-    for (const item of items) {
-        if (!item.isDirectory()) {
-            continue;
+        for (const item of items) {
+            if (!item.isDirectory()) {
+                continue;
+            }
+
+            const dirPath = path.join(currentDir, item.name);
+            if (item.name === slug || makeSlug(item.name) === slug) {
+                return dirPath;
+            }
+
+            const nested = await walk(dirPath);
+            if (nested) {
+                return nested;
+            }
         }
 
-        const dirName = item.name;
-        if (dirName === slug || makeSlug(dirName) === slug) {
-            return path.join(PLUGINS_DIR, dirName);
-        }
+        return null;
     }
 
-    return null;
+    return walk(PLUGINS_DIR);
 }
 
 function normalizeMetadata(raw, slug, pluginDirPath, req) {
@@ -184,6 +193,42 @@ app.get('/plugins', async (req, res) => {
     } catch (error) {
         console.error('Error fetching plugins:', error);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /plugins/:slug/assets/* - Serve plugin assets by slug
+app.get('/plugins/:slug/assets/:assetPath(*)', async (req, res) => {
+    try {
+        const { slug, assetPath } = req.params;
+
+        if (!isValidSlug(slug)) {
+            return res.status(400).json({ error: 'Invalid plugin slug format' });
+        }
+
+        const pluginDirPath = await findPluginDirBySlug(slug);
+        if (!pluginDirPath) {
+            return res.status(404).json({ error: 'Plugin not found' });
+        }
+
+        const relativeAssetPath = String(assetPath || '').replace(/^\/+/, '');
+        const resolvedPath = path.resolve(pluginDirPath, relativeAssetPath);
+        const resolvedPluginRoot = path.resolve(pluginDirPath);
+
+        // Prevent path traversal
+        if (!resolvedPath.startsWith(resolvedPluginRoot)) {
+            return res.status(400).json({ error: 'Invalid asset path' });
+        }
+
+        try {
+            await fs.access(resolvedPath);
+        } catch {
+            return res.status(404).json({ error: 'Asset not found' });
+        }
+
+        return res.sendFile(resolvedPath);
+    } catch (error) {
+        console.error('Error serving plugin asset:', error);
+        return res.status(500).json({ error: 'Internal server error' });
     }
 });
 
