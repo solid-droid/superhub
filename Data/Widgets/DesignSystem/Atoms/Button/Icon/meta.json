@@ -1,0 +1,16 @@
+{
+  "name": "Icon",
+  "version": "1.0.0",
+  "slug": "widget>design-system>Atom.button.icon",
+  "description": "An icon button component for consistent UI development.",
+  "baseURL": "Data/Widgets/DesignSystem/Atoms/Button/Icon",
+  "baseType": "local",
+  "dependsOn": [
+    "widget>design-system>Atom.button@1.0.0"
+  ],
+  "files": [
+    {"url": "${baseURL}/Button.js", "entry": true},
+    {"url": "${baseURL}/Button.css"},
+    {"url": "${baseURL}/Button.html"}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Checkbox",
+  "version": "1.0.0",
+  "slug": "widget>design-system>Atom.checkbox",
+  "description": "A checkbox component for consistent UI development.",
+  "baseURL": "Data/Widgets/DesignSystem/Atoms/Checkbox/Core",
+  "baseType": "local",
+  "files": [
+    {"url": "${baseURL}/Checkbox.js", "entry": true},
+    {"url": "${baseURL}/Checkbox.html"},
+    {"url": "${baseURL}/Checkbox.css"}
+  ]
+}

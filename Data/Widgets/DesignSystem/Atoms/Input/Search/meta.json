@@ -1,0 +1,21 @@
+{
+  "name": "Search",
+  "version": "1.0.0",
+  "slug": "widget>design-system>Atom.input.search",
+  "description": "A search input component for consistent UI development.",
+  "baseURL": "Data/Widgets/DesignSystem/Atoms/Input/Search",
+  "baseType": "local",
+  "meta": {
+    "author": "Your Name",
+    "license": "MIT",
+    "publishedOn": "2024-06-01"
+  },
+  "dependsOn": [
+    "widget>design-system>Atom.input@1.0.0"
+  ],
+  "files": [
+    {"url": "${baseURL}/Search.js", "entry": true},
+    {"url": "${baseURL}/Search.html"},
+    {"url": "${baseURL}/Search.css"}
+  ]
+}

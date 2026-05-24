@@ -1,0 +1,13 @@
+{
+  "name": "Button",
+  "version": "1.0.0",
+  "slug": "widget>design-system>Atom.button",
+  "description": "A button component for consistent UI development.",
+  "baseURL": "Data/Widgets/DesignSystem/Atoms/Button/Core",
+  "baseType": "local",
+  "files": [
+    {"url": "${baseURL}/button.js", "entry": true},
+    {"url": "${baseURL}/button.css"},
+    {"url": "${baseURL}/button.html"}
+  ]
+}

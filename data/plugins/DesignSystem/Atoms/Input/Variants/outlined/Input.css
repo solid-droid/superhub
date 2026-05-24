@@ -1,4 +1,0 @@
-.ds-input-outlined {
-    background-color: var(--ds-input-bg, rgba(255, 255, 255, 0.08));
-    border: var(--ds-border-width, 1px) solid var(--ds-border-color, rgba(255, 255, 255, 0.2));
-}

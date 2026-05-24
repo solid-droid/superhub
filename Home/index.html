@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SuperHub</title>
+  <style>
+__HOME_CSS__
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <h1>SuperHub is running</h1>
+      <p class="muted">Local plugin registry and delivery server.</p>
+    </section>
+
+    <div class="main-layout">
+      <section class="card api-panel">
+        <h2>API List</h2>
+        <ul class="api-list" id="api-list"></ul>
+      </section>
+
+      <section class="card explorer-panel">
+        <h2>Meta Explorer</h2>
+        <div class="controls">
+          <input id="search" type="search" placeholder="Search name, slug, description" />
+          <select id="kind-filter">
+            <option value="all">All types</option>
+            <option value="widget">Widget</option>
+            <option value="theme">Theme</option>
+            <option value="service">Service</option>
+            <option value="app">App</option>
+          </select>
+          <select id="sort-by">
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
+            <option value="slug-asc">Slug A-Z</option>
+            <option value="slug-desc">Slug Z-A</option>
+            <option value="version-desc">Version desc</option>
+            <option value="version-asc">Version asc</option>
+          </select>
+        </div>
+
+        <p id="status" class="muted">Loading metadata...</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Slug</th>
+                <th>Version</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="meta-rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script>
+__HOME_JS__
+  </script>
+</body>
+</html>

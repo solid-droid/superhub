@@ -8,8 +8,8 @@
     "bun": ">=1.2.0"
   },
   "scripts": {
-    "dev": "bun --hot index.js",
-    "start": "bun index.js",
+    "dev": "bun --hot Server.js",
+    "start": "bun Server.js",
     "test": "bun test"
   },
   "keywords": [

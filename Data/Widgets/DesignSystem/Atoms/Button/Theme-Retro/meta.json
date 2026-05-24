@@ -1,0 +1,14 @@
+{
+  "name": "RetroTheme",
+  "version": "1.0.0",
+  "slug": "theme>design-system>Atom.button.theme-retro",
+  "description": "A retro-themed button component for consistent UI development.",
+  "baseURL": "Data/Widgets/DesignSystem/Atoms/Button/Theme-Retro",
+  "baseType": "local",
+  "dependsOn": [
+    "widget>design-system>Atom.button@1.0.0"
+  ],
+  "files": [
+    {"url": "${baseURL}/RetroTheme.css", "entry": true}
+  ]
+}

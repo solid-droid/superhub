@@ -1,0 +1,13 @@
+{
+  "name": "Input",
+  "version": "1.0.0",
+  "slug": "widget>design-system>Atom.input",
+  "description": "An input component for consistent UI development.",
+  "baseURL": "Data/Widgets/DesignSystem/Atoms/Input/Core",
+  "baseType": "local",
+  "files": [
+    {"url": "${baseURL}/Input.js", "entry": true},
+    {"url": "${baseURL}/Input.html"},
+    {"url": "${baseURL}/Input.css"}
+  ]
+}
