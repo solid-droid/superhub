@@ -1,0 +1,28 @@
+.ds-btn {
+  border: 1px solid #30374a;
+  background: linear-gradient(180deg, #ffffff 0%, #d7dfef 100%);
+  color: #121824;
+  border-radius: 10px;
+  padding: 8px 14px;
+  min-height: 36px;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(6, 9, 14, 0.2);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ds-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(6, 9, 14, 0.26);
+}
+
+.ds-btn:active {
+  transform: translateY(0);
+}
+
+.ds-btn:focus-visible {
+  outline: 2px solid #4c7eff;
+  outline-offset: 2px;
+}

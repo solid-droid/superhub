@@ -6,8 +6,8 @@
   "baseURL": "Data/Widgets/DesignSystem/Atoms/Button/Core",
   "baseType": "local",
   "files": [
-    {"url": "${baseURL}/button.js", "entry": true},
+    {"url": "${baseURL}/Button.js", "entry": true},
     {"url": "${baseURL}/button.css"},
-    {"url": "${baseURL}/button.html"}
+    {"url": "${baseURL}/Button.html"}
   ]
 }

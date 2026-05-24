@@ -9,6 +9,32 @@ import { handlePluginPost } from "./Router/plugin-post.js";
 import { handleVerifyLocalRegistry } from "./Router/verify-local-registry.js";
 import { handleHome } from "./Router/home.js";
 
+function buildCorsHeaders(request) {
+	const origin = request.headers.get("origin") || "*";
+	return {
+		"access-control-allow-origin": origin,
+		"access-control-allow-methods": "GET,POST,OPTIONS",
+		"access-control-allow-headers": "content-type,authorization",
+		"access-control-max-age": "86400",
+		"vary": "Origin"
+	};
+}
+
+function withCors(response, request) {
+	const headers = new Headers(response.headers);
+	const corsHeaders = buildCorsHeaders(request);
+
+	for (const [key, value] of Object.entries(corsHeaders)) {
+		headers.set(key, value);
+	}
+
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers
+	});
+}
+
 function compilePathPattern(pathPattern) {
 	const params = [];
 	const regexParts = pathPattern
@@ -77,24 +103,30 @@ function matchRoute(method, pathName) {
 }
 
 export async function handleRequest(request, context) {
+	if (request.method.toUpperCase() === "OPTIONS") {
+		return withCors(new Response(null, { status: 204 }), request);
+	}
+
 	const url = new URL(request.url);
 	const found = matchRoute(request.method.toUpperCase(), url.pathname);
 
 	if (!found) {
-		return jsonResponse(404, toErrorBody("route not found", {
+		return withCors(jsonResponse(404, toErrorBody("route not found", {
 			method: request.method,
 			path: url.pathname
-		}));
+		})), request);
 	}
 
 	try {
-		return await found.route.handler({
+		const response = await found.route.handler({
 			request,
 			params: found.params,
 			services: context.services,
 			projectRoot: context.projectRoot
 		});
+
+		return withCors(response, request);
 	} catch (error) {
-		return jsonResponse(500, toErrorBody("internal server error", error.message));
+		return withCors(jsonResponse(500, toErrorBody("internal server error", error.message)), request);
 	}
 }

@@ -1,0 +1,17 @@
+.ds-btn--icon {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ds-btn--icon-v2 .ds-btn__icon {
+	width: 18px;
+	height: 18px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	line-height: 1;
+	border-radius: 999px;
+	background: rgba(18, 24, 36, 0.14);
+}
